@@ -2,11 +2,15 @@
 using System;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
+using System.Timers;
 
 namespace SocketIOClient.Sample
 {
+
     class Program
     {
+        System.Timers.Timer Timers_Timer = new System.Timers.Timer();
+        static public string userId;
         static async Task Main(string[] args)
         {
             //var client = new SocketIO("http://localhost:3000");
@@ -34,33 +38,14 @@ namespace SocketIOClient.Sample
             //await client.ConnectAsync();
 
             //-----------------
-            var client = new SocketIO("https://socket.stex.com/");
-
-            client.On("App\\Events\\GlassRowChanged", res =>
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine(res.Text);
-            });
-
-            client.OnConnected += async () =>
-            {
-                var obj = new
-                {
-                    channel = "orderbook_data250",
-                    auth = new { }
-                };
-
-                await client.EmitAsync("subscribe", obj);
-            };
-
-            await client.ConnectAsync();
+            var player1 = new Player("18534572861", "123456789");
+            player1.init();
+            System.Threading.Thread.Sleep(5000);
+            var player2 = new Player("18534572862", "qiushanyu666");
+            Console.WriteLine($"player1.instanceId:{player1.instanceId}");
+            player2.init(player1.instanceId);
 
             Console.ReadLine();
         }
-
-        //private static void Client_OnClosed(ServerCloseReason reason)
-        //{
-        //    Console.WriteLine("reason: " + reason.ToString());
-        //}
     }
 }
