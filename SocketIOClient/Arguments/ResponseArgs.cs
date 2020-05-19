@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+﻿using Newtonsoft.Json.Linq;
 
 namespace SocketIOClient.Arguments
 {
@@ -6,6 +6,5 @@ namespace SocketIOClient.Arguments
     {
         public string RawText { get; set; }
         public string Text { get; set; }
-        public List<byte[]> Buffers { get; set; }
     }
 }

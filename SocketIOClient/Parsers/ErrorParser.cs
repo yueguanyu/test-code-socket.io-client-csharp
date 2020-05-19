@@ -1,27 +1,24 @@
 ﻿using SocketIOClient.Arguments;
 using System.Text.RegularExpressions;
-using Websocket.Client;
+using System.Threading.Tasks;
 
 namespace SocketIOClient.Parsers
 {
-    class ErrorParser : Parser
+    class ErrorParser : IParser
     {
-        public override void Parse(ParserContext ctx, ResponseMessage resMsg)
+        public Task ParseAsync(ResponseTextParser rtp)
         {
-            var regex = new Regex($@"^44{ctx.Namespace}([\s\S]*)$");
-            if (regex.IsMatch(resMsg.Text))
+            var regex = new Regex($@"^44{rtp.Namespace}([\s\S]*)$");
+            if (regex.IsMatch(rtp.Text))
             {
-                var groups = regex.Match(resMsg.Text).Groups;
-                ctx.ErrorHandler(new ResponseArgs
+                var groups = regex.Match(rtp.Text).Groups;
+                rtp.Socket.InvokeErrorEvent(new ResponseArgs
                 {
                     Text = groups[1].Value,
-                    RawText = resMsg.Text
+                    RawText = rtp.Text
                 });
             }
-            else if (Next != null)
-            {
-                Next.Parse(ctx, resMsg);
-            }
+            return Task.CompletedTask;
         }
     }
 }

@@ -1,49 +1,39 @@
-﻿using Newtonsoft.Json;
+﻿using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using SocketIOClient.Arguments;
-using System.Text.RegularExpressions;
-using Websocket.Client;
 
 namespace SocketIOClient.Parsers
 {
-    class MessageEventParser : Parser
+    class MessageEventParser : IParser
     {
-        public override void Parse(ParserContext ctx, ResponseMessage resMsg)
+        public Task ParseAsync(ResponseTextParser rtp)
         {
-            var regex = new Regex($@"^42{ctx.Namespace}\d*\[(.+)\]$");
-            if (regex.IsMatch(resMsg.Text))
+            var regex = new Regex($@"^42{rtp.Namespace}\d*\[""([*\.\s\w-]+)"",([\s\S]*)\]$");//$@"^42{rtp.Namespace}\d*\[(.+)\]$"//$@"^42{rtp.Namespace}\d*\[""([*\s\w-]+)"",([\s\S]*)\]$"
+            if (regex.IsMatch(rtp.Text))
             {
-                var groups = regex.Match(resMsg.Text).Groups;
-                string text = groups[1].Value;
-                var formatter = new DataFormatter();
-                var data = formatter.Format(text);
-                var eventHandlerArg = new ResponseArgs { RawText = resMsg.Text };
-                string eventName = JsonConvert.DeserializeObject<string>(data[0]);
-                if (data.Count > 1)
-                    eventHandlerArg.Text = data[1];
-                if (ctx.EventHandlers.ContainsKey(data[0]))
+                var groups = regex.Match(rtp.Text).Groups;
+                string eventName = groups[1].Value;
+                var args = new ResponseArgs
                 {
-                    var handlerBox = ctx.EventHandlers[data[0]];
-                    handlerBox.EventHandler?.Invoke(eventHandlerArg);
-                    if (handlerBox.EventHandlers != null)
-                    {
-                        for (int i = 0; i < handlerBox.EventHandlers.Count; i++)
-                        {
-                            var arg = new ResponseArgs { RawText = resMsg.Text };
-                            if (i + 2 <= data.Count - 1)
-                                arg.Text = data[i + 2];
-                            handlerBox.EventHandlers[i](arg);
-                        }
-                    }
+                    Text = groups[2].Value,
+                    RawText = rtp.Text
+                };
+                if (rtp.Socket.EventHandlers.ContainsKey(eventName))
+                {
+                    var handler = rtp.Socket.EventHandlers[eventName];
+                    handler(args);
                 }
                 else
                 {
-                    ctx.UncaughtHandler(eventName, eventHandlerArg);
+                    rtp.Socket.InvokeUnhandledEvent(eventName, args);
                 }
-                ctx.ReceiveHandler(eventName, eventHandlerArg);
+                rtp.Socket.InvokeReceivedEvent(eventName, args);
+                return Task.CompletedTask;
             }
-            else if (Next != null)
+            else
             {
-                Next.Parse(ctx, resMsg);
+                rtp.Parser = new MessageAckParser();
+                return rtp.ParseAsync();
             }
         }
     }

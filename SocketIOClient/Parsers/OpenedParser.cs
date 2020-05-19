@@ -1,22 +1,23 @@
 ﻿using Newtonsoft.Json;
 using SocketIOClient.Arguments;
-using Websocket.Client;
+using System.Threading.Tasks;
 
 namespace SocketIOClient.Parsers
 {
-    class OpenedParser : Parser
+    class OpenedParser : IParser
     {
-        public override void Parse(ParserContext ctx, ResponseMessage resMsg)
+        public Task ParseAsync(ResponseTextParser rtp)
         {
-            if (resMsg.Text.StartsWith("0{\"sid\":\""))
+            if (rtp.Text.StartsWith("0{\"sid\":\""))
             {
-                string message = resMsg.Text.TrimStart('0');
+                string message = rtp.Text.TrimStart('0');
                 var args = JsonConvert.DeserializeObject<OpenedArgs>(message);
-                ctx.OpenHandler(args);
+                return rtp.Socket.InvokeOpenedAsync(args);
             }
-            else if (Next != null)
+            else
             {
-                Next.Parse(ctx, resMsg);
+                rtp.Parser = new ConnectedParser();
+                return rtp.ParseAsync();
             }
         }
     }

@@ -1,32 +1,34 @@
 ﻿using SocketIOClient.Arguments;
 using System.Text.RegularExpressions;
-using Websocket.Client;
+using System.Threading.Tasks;
 
 namespace SocketIOClient.Parsers
 {
-    class MessageAckParser : Parser
+    class MessageAckParser : IParser
     {
-        public override void Parse(ParserContext ctx, ResponseMessage resMsg)
+        public Task ParseAsync(ResponseTextParser rtp)
         {
-            var regex = new Regex($@"^43{ctx.Namespace}(\d+)\[([\s\S]*)\]$");
-            if (regex.IsMatch(resMsg.Text))
+            var regex = new Regex($@"^43{rtp.Namespace}(\d+)\[([\s\S]*)\]$");
+            if (regex.IsMatch(rtp.Text))
             {
-                var groups = regex.Match(resMsg.Text).Groups;
+                var groups = regex.Match(rtp.Text).Groups;
                 int packetId = int.Parse(groups[1].Value);
-                if (ctx.Callbacks.ContainsKey(packetId))
+                if (rtp.Socket.Callbacks.ContainsKey(packetId))
                 {
-                    var handler = ctx.Callbacks[packetId];
+                    var handler = rtp.Socket.Callbacks[packetId];
                     handler(new ResponseArgs
                     {
                         Text = groups[2].Value,
-                        RawText = resMsg.Text
+                        RawText = rtp.Text
                     });
-                    ctx.Callbacks.Remove(packetId);
+                    rtp.Socket.Callbacks.Remove(packetId);
                 }
+                return Task.CompletedTask;
             }
-            else if (Next != null)
+            else
             {
-                Next.Parse(ctx, resMsg);
+                rtp.Parser = new ErrorParser();
+                return rtp.ParseAsync();
             }
         }
     }
