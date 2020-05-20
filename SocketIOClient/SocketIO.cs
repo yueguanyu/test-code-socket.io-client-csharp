@@ -149,24 +149,26 @@ namespace SocketIOClient
                     if (_socket.State == WebSocketState.Open)
                     {
                         WebSocketReceiveResult result = await _socket.ReceiveAsync(new ArraySegment<byte>(buffer), _tokenSource.Token);
-                        Console.WriteLine($"GetWebSocket Data{result}");
                         if (result.MessageType == WebSocketMessageType.Text)
                         {
-                            var builder = new StringBuilder();
-                            string str = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                            Console.WriteLine("GetWebSocket Data" + str);
-                            builder.Append(str);
+                            var bufferList = new List<byte>();
+                            byte[] bufferTotal;
+                            int totalCount = 0;
+                            bufferList.AddRange(buffer);
+                            totalCount += result.Count;
 
                             while (!result.EndOfMessage)
                             {
                                 result = await _socket.ReceiveAsync(new ArraySegment<byte>(buffer), _tokenSource.Token);
-                                str = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                                builder.Append(str);
-                            }
+                                totalCount += result.Count;
+                                bufferList.AddRange(buffer);
 
+                            }
+                            bufferTotal = bufferList.ToArray();
+                            Console.WriteLine("GetWebSocket Data" + bufferList.Count() + Encoding.UTF8.GetString(bufferTotal, 0, totalCount));
                             var parser = new ResponseTextParser(_namespace, this)
                             {
-                                Text = builder.ToString()
+                                Text = Encoding.UTF8.GetString(bufferTotal, 0, totalCount)
                             };
                             //Console.WriteLine("parser.ParseAsync" + parser.Text);
                             await parser.ParseAsync();
