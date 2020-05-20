@@ -14,6 +14,11 @@ namespace SocketIOClient.Parsers
                 var args = JsonConvert.DeserializeObject<OpenedArgs>(message);
                 return rtp.Socket.InvokeOpenedAsync(args);
             }
+            else if (rtp.Text == "3")
+            {
+                rtp.Parser = new HeartbeatParser();
+                return rtp.ParseAsync();
+            }
             else
             {
                 rtp.Parser = new ConnectedParser();

@@ -4,12 +4,15 @@ using System.Threading.Tasks;
 using System.Timers;
 using Newtonsoft.Json;
 
-namespace SocketIOClient.Sample {
+namespace SocketIOClient.Sample
+{
 
-    class Program {
-        System.Timers.Timer Timers_Timer = new System.Timers.Timer ();
+    class Program
+    {
+        System.Timers.Timer Timers_Timer = new System.Timers.Timer();
         static public string userId;
-        static async Task Main (string[] args) {
+        static async Task Main(string[] args)
+        {
             //var client = new SocketIO("http://localhost:3000");
             //client.ConnectTimeout = TimeSpan.FromSeconds(5);
 
@@ -35,15 +38,15 @@ namespace SocketIOClient.Sample {
             //await client.ConnectAsync();
 
             //-----------------
-            var player1 = new Player ("18534572861", "123456789");
-            player1.initListener ();
+            var player1 = new Player("18534572861", "123456789");
+            player1.initListener();
             // player1.init();
-            System.Threading.Thread.Sleep (5000);
+            System.Threading.Thread.Sleep(5000);
             // var player2 = new Player ("18534572862", "qiushanyu666");
             // Console.WriteLine ($"player1.instanceId:{player1.instanceId}");
             // player2.init(player1.instanceId);
 
-            Console.ReadLine ();
+            Console.ReadLine();
         }
     }
 }

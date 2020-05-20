@@ -14,8 +14,10 @@ namespace SocketIOClient
 {
     public class SocketIO
     {
-        public SocketIO(Uri uri)
+        public SocketIO(Uri uri, Option opt)
         {
+            _heartbeatTimeoutDelay = opt.HeartbeatTimeoutDelay;
+            _timeoutTimesForClose = opt.TimeoutTimesForClose;
             if (uri.Scheme == "https" || uri.Scheme == "http" || uri.Scheme == "wss" || uri.Scheme == "ws")
             {
                 _uri = uri;
@@ -35,7 +37,7 @@ namespace SocketIOClient
             ConnectTimeout = TimeSpan.FromSeconds(10);
         }
 
-        public SocketIO(string uri) : this(new Uri(uri)) { }
+        public SocketIO(string uri) : this(new Uri(uri), new Option()) { }
 
         private const int ReceiveChunkSize = 1024;
         private const int SendChunkSize = 1024;
@@ -80,6 +82,14 @@ namespace SocketIOClient
 
         public Dictionary<string, EventHandler> EventHandlers { get; }
 
+        public bool _isHeartbeatFinished = true;
+        public bool _isConnectTimeout = false;
+        public int _timeoutNumber = 0;
+        public int _heartbeatDelay = 0;
+
+        private int _heartbeatTimeoutDelay = 2000;
+
+        private int _timeoutTimesForClose = 2;
         public SocketIOState State { get; private set; }
 
         public Task ConnectAsync()
@@ -92,7 +102,7 @@ namespace SocketIOClient
                 _socket.Dispose();
             }
             _socket = new ClientWebSocket();
-            bool executed = _socket.ConnectAsync(wsUri, token).Wait(TimeSpan.FromSeconds(1));
+            bool executed = _socket.ConnectAsync(wsUri, _tokenSource.Token).Wait(TimeSpan.FromSeconds(1));
             if (!executed)
             {
                 throw new TimeoutException();
@@ -127,6 +137,23 @@ namespace SocketIOClient
                 while (true)
                 {
                     await Task.Delay(500);
+                    if (!_isHeartbeatFinished)
+                    {
+                        _heartbeatDelay += 500;
+                    }
+                    if (!_isConnectTimeout && _heartbeatDelay >= _heartbeatTimeoutDelay)
+                    {
+                        _isConnectTimeout = true;
+                        if (_timeoutNumber == 0)
+                        {
+                            await InvokeConnectTimeout();
+                        }
+                        _timeoutNumber++;
+                        if (_timeoutNumber == 2)
+                        {
+                            await CloseAsync();
+                        }
+                    }
                     if (_socket.State == WebSocketState.Aborted || _socket.State == WebSocketState.Closed)
                     {
                         if (State != SocketIOState.Closed)
@@ -142,9 +169,9 @@ namespace SocketIOClient
             // Listen Message
             Task.Factory.StartNew(async () =>
             {
-                var buffer = new byte[ReceiveChunkSize];
                 while (true)
                 {
+                    var buffer = new byte[ReceiveChunkSize];
                     Console.WriteLine("_socket.State " + _socket.State.ToString());
                     if (_socket.State == WebSocketState.Open)
                     {
@@ -164,7 +191,7 @@ namespace SocketIOClient
                                 bufferList.AddRange(buffer);
                             }
                             bufferTotal = bufferList.ToArray();
-                            Console.WriteLine("GetWebSocket Data" + bufferList.Count() + Encoding.UTF8.GetString(bufferTotal, 0, totalCount));
+                            Console.WriteLine($"GetWebSocket Data in len: {bufferList.Count()}, data: {Encoding.UTF8.GetString(bufferTotal, 0, totalCount)}");
                             var parser = new ResponseTextParser(_namespace, this)
                             {
                                 Text = Encoding.UTF8.GetString(bufferTotal, 0, totalCount)
@@ -185,6 +212,10 @@ namespace SocketIOClient
                             }
                             Console.WriteLine("GetWebSocket Data : " + str);
                         }
+                    }
+                    else
+                    {
+                        Thread.Sleep(1000);
                     }
                 }
             }, _tokenSource.Token);
@@ -226,6 +257,7 @@ namespace SocketIOClient
                 State = SocketIOState.Closed;
                 await _socket.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, _tokenSource.Token);
                 _tokenSource.Cancel();
+                Console.WriteLine("_tokenSource canceled");
                 OnClosed?.Invoke(ServerCloseReason.ClosedByServer);
             }
         }
@@ -245,6 +277,9 @@ namespace SocketIOClient
                     {
                         await Task.Delay(args.PingInterval);
                         await SendMessageAsync(((int)EngineIOProtocol.Ping).ToString());
+                        _isHeartbeatFinished = false;
+                        _heartbeatDelay = 0;
+                        _isConnectTimeout = false;
                     }
                     else
                     {
@@ -252,6 +287,51 @@ namespace SocketIOClient
                     }
                 }
             });
+        }
+
+        public async Task InvokePingAsync()
+        {
+            OnPing?.Invoke();
+        }
+
+        public async Task InvokePongAsync()
+        {
+            OnPong?.Invoke("pong received");
+        }
+
+        public async Task InvokeConnectError()
+        {
+            OnConnectError?.Invoke("");
+        }
+
+        public async Task InvokeConnectTimeout()
+        {
+            OnConnectTimeout?.Invoke("");
+        }
+
+        public async Task InvokeReconnect()
+        {
+            OnReconnect?.Invoke("");
+        }
+
+        public async Task InvokeReconnectAttempt()
+        {
+            OnReconnectAttempt?.Invoke("");
+        }
+
+        public async Task InvokeReconnecting()
+        {
+            OnReconnecting?.Invoke("");
+        }
+
+        public async Task InvokeReconnectError()
+        {
+            OnReconnectError?.Invoke("");
+        }
+
+        public async Task InvokeReconnectFailed()
+        {
+            OnReconnectFailed?.Invoke("");
         }
 
         public Task InvokeUnhandledEvent(string eventName, ResponseArgs args)
