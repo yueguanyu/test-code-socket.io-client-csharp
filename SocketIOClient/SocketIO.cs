@@ -162,7 +162,6 @@ namespace SocketIOClient
                                 result = await _socket.ReceiveAsync(new ArraySegment<byte>(buffer), _tokenSource.Token);
                                 totalCount += result.Count;
                                 bufferList.AddRange(buffer);
-
                             }
                             bufferTotal = bufferList.ToArray();
                             Console.WriteLine("GetWebSocket Data" + bufferList.Count() + Encoding.UTF8.GetString(bufferTotal, 0, totalCount));
